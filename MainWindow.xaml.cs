@@ -26,7 +26,7 @@ namespace Caro
     public partial class Cell(Position pos) : ObservableObject
     {
         [ObservableProperty]
-        private Position _pos;
+        private Position _pos = pos;
 
         [ObservableProperty]
         private Player _playedBy = Player.None;
@@ -55,15 +55,6 @@ namespace Caro
             DataContext = this;
         }
 
-        private void MainWindow_Loaded(object sender, System.Windows.RoutedEventArgs e)
-        {
-            Board.ItemsSource = BoardData;
-            CreateBoard(_boardDimension);
-
-
-            this.MinHeight = _minBoardSize + Test.ActualHeight + TitleBar.ActualHeight + _spacing * 4;
-        }
-
         private void CreateBoard(int size)
         {
             var itemsPresenter = Utils.GetVisualChild<ItemsPresenter>(Board)!;
@@ -85,13 +76,6 @@ namespace Caro
             {
                 for (int j = 0; j < size; j++)
                 {
-                    var BorderThickness = new Thickness()
-                    {
-                        Top = i == 0 ? 1 : 0,
-                        Left = j == 0 ? 1 : 0,
-                        Right = j == size - 1 ? 1 : 0,
-                        Bottom = i == size - 1 ? 1 : 0
-                    };
                     Position pos =
                         (i == 0 ? Position.Top : Position.Other)
                         | (j == 0 ? Position.Left : Position.Other)
@@ -103,6 +87,16 @@ namespace Caro
                     Grid.SetRow(grid.Children[i * size + j], i);
                 }
             }
+        }
+
+        #region Event Handlers
+        private void MainWindow_Loaded(object sender, System.Windows.RoutedEventArgs e)
+        {
+            Board.ItemsSource = BoardData;
+            CreateBoard(_boardDimension);
+
+
+            this.MinHeight = _minBoardSize + Test.ActualHeight + TitleBar.ActualHeight + _spacing * 4;
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -128,7 +122,7 @@ namespace Caro
             //((ViewModel)DataContext).List[0].PlayedBy = _currentPlayer;
 
             // reset the selection
-            Board.SelectedIndex = -1;
+            //Board.SelectedIndex = -1;
         }
 
         private void BoardTemplate_Loaded(object sender, RoutedEventArgs e)
@@ -141,5 +135,7 @@ namespace Caro
             BoardData[0].PlayedBy = _currentPlayer;
 
         }
+
+        #endregion Event Handlers
     }
 }

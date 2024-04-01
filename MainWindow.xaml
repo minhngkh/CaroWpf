@@ -3,12 +3,15 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="clr-namespace:Caro.Helpers"
     xmlns:local="clr-namespace:Caro"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     Title="MainWindow"
     Width="800"
     Height="600"
+    d:DataContext="{d:DesignInstance Type=local:MainWindow,
+                                     IsDesignTimeCreatable=False}"
     ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
     ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     Foreground="{DynamicResource TextFillColorPrimaryBrush}"
@@ -20,25 +23,57 @@
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
-            <DataTemplate x:Key="EmptyCellTemplate">
-                <Border BorderBrush="Black" />
-            </DataTemplate>
+            <DataTemplate x:Key="EmptyCellTemplate" />
             <DataTemplate x:Key="XCellTemplate">
-                <Border BorderBrush="Black">
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Text="X" />
-                </Border>
+                <Canvas Name="parent" Margin="10">
+                    <Line
+                        Stroke="Blue"
+                        StrokeThickness="2"
+                        X1="0"
+                        X2="{Binding ElementName=parent, Path=ActualWidth}"
+                        Y1="0"
+                        Y2="{Binding ElementName=parent, Path=ActualHeight}" />
+                    <Line
+                        Stroke="Blue"
+                        StrokeThickness="2"
+                        X1="0"
+                        X2="{Binding ElementName=parent, Path=ActualWidth}"
+                        Y1="{Binding ElementName=parent, Path=ActualHeight}"
+                        Y2="0" />
+                </Canvas>
             </DataTemplate>
             <DataTemplate x:Key="OCellTemplate">
-                <Border BorderBrush="Black">
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Text="O" />
-                </Border>
+                <Canvas Name="parent" Margin="10">
+                    <Ellipse
+                        Width="{Binding ElementName=parent, Path=ActualWidth}"
+                        Height="{Binding ElementName=parent, Path=ActualHeight}"
+                        Stroke="Red"
+                        StrokeThickness="2" />
+                </Canvas>
             </DataTemplate>
+
+            <ControlTemplate x:Key="CellContainer" TargetType="{x:Type ListViewItem}">
+                <Border
+                    x:Name="Border"
+                    Padding="{TemplateBinding Padding}"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    SnapsToDevicePixels="true">
+                    <ContentPresenter />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <MultiTrigger>
+                        <MultiTrigger.Conditions>
+                            <Condition Property="IsEnabled" Value="True" />
+                            <Condition Property="IsMouseOver" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                    </MultiTrigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+
+            <helpers:PositionToBorderThicknessConverter x:Key="PositionToBorderThicknessConverter" />
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -58,27 +93,44 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-
-            <ListView x:Name="Board" SelectionChanged="Board_SelectionChanged">
-                <ListView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <Grid x:Name="BoardTemplate" Loaded="BoardTemplate_Loaded" />
-                    </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
-                <ListView.ItemTemplateSelector>
-                    <local:BoardCellDataTemplateSelector
-                        EmptyCellTemplate="{StaticResource EmptyCellTemplate}"
-                        OCellTemplate="{StaticResource OCellTemplate}"
-                        XCellTemplate="{StaticResource XCellTemplate}" />
-                </ListView.ItemTemplateSelector>
-                <ListView.ItemContainerStyle>
-                    <Style BasedOn="{StaticResource {x:Type ListViewItem}}" TargetType="{x:Type ListViewItem}">
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="-1" />
-                    </Style>
-                </ListView.ItemContainerStyle>
-
-            </ListView>
+            <Border
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                BorderBrush="Gray"
+                BorderThickness="1">
+                <ListView x:Name="Board" SelectionChanged="Board_SelectionChanged">
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <Grid x:Name="BoardTemplate" Loaded="BoardTemplate_Loaded" />
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+                    <ListView.ItemContainerStyle>
+                        <Style BasedOn="{StaticResource {x:Type ListViewItem}}" TargetType="{x:Type ListViewItem}">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="BorderBrush" Value="Gray" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Template" Value="{StaticResource CellContainer}" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate DataType="local:Cell">
+                            <ContentControl
+                                x:Name="content"
+                                Content="{Binding}"
+                                ContentTemplate="{StaticResource EmptyCellTemplate}" />
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static local:Player.X}">
+                                    <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource XCellTemplate}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static local:Player.O}">
+                                    <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource OCellTemplate}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
 
             <StackPanel Grid.Row="1" Margin="0,20,0,0">
                 <ui:Button
