@@ -1,0 +1,92 @@
+﻿<ui:FluentWindow
+    x:Class="Caro.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:Caro"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="MainWindow"
+    Width="800"
+    Height="600"
+    ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+    ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+    Loaded="MainWindow_Loaded"
+    SizeChanged="MainWindow_SizeChanged"
+    WindowCornerPreference="Default"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <DataTemplate x:Key="EmptyCellTemplate">
+                <Border BorderBrush="Black" />
+            </DataTemplate>
+            <DataTemplate x:Key="XCellTemplate">
+                <Border BorderBrush="Black">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="X" />
+                </Border>
+            </DataTemplate>
+            <DataTemplate x:Key="OCellTemplate">
+                <Border BorderBrush="Black">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="O" />
+                </Border>
+            </DataTemplate>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ui:TitleBar
+            x:Name="TitleBar"
+            Title="Caro Game"
+            Height="30"
+            DockPanel.Dock="Top">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/icon.ico" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+        <Grid x:Name="Content" Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+
+            <ListView x:Name="Board" SelectionChanged="Board_SelectionChanged">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Grid x:Name="BoardTemplate" Loaded="BoardTemplate_Loaded" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemTemplateSelector>
+                    <local:BoardCellDataTemplateSelector
+                        EmptyCellTemplate="{StaticResource EmptyCellTemplate}"
+                        OCellTemplate="{StaticResource OCellTemplate}"
+                        XCellTemplate="{StaticResource XCellTemplate}" />
+                </ListView.ItemTemplateSelector>
+                <ListView.ItemContainerStyle>
+                    <Style BasedOn="{StaticResource {x:Type ListViewItem}}" TargetType="{x:Type ListViewItem}">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="-1" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+
+            </ListView>
+
+            <StackPanel Grid.Row="1" Margin="0,20,0,0">
+                <ui:Button
+                    x:Name="Test"
+                    HorizontalAlignment="Center"
+                    Click="Test_Click"
+                    Content="New Game" />
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</ui:FluentWindow>
