@@ -1,53 +1,41 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using Caro.CaroGame;
+using Microsoft.Win32;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Xml.Serialization;
 using Wpf.Ui.Controls;
 
 namespace Caro
 {
-    [Flags]
-    public enum Position
-    {
-        Other = 0,
-        Top = 1 << 0,
-        Left = 1 << 1,
-        Right = 1 << 2,
-        Bottom = 1 << 3
-    }
-    public enum Player
-    {
-        None,
-        X,
-        O
-    }
-
-    public partial class Cell(Position pos) : ObservableObject
-    {
-        [ObservableProperty]
-        private Position _pos = pos;
-
-        [ObservableProperty]
-        private Player _playedBy = Player.None;
-    }
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : FluentWindow
+    public partial class MainWindow : FluentWindow, INotifyPropertyChanged
     {
         private const int _spacing = 20;
+        private const int ConsecutiveCellsToWin = 5;
         private Grid? _boardTemplate;
 
         private const int MinCellSize = 30;
         private const int MaxCellSize = 40;
+        private const Player FirstPlayer = Player.X;
         private int _maxBoardSize;
         private int _minBoardSize;
         private int _boardDimension = 13;
-        private Player _currentPlayer = Player.X;
+        private Cell? _highlightedCell = null;
 
-        public ObservableCollection<Cell> BoardData { get; set; } = [];
+        private readonly MediaPlayer _soundPlayer = new MediaPlayer();
+        private readonly Uri _selectSoundUri = new("pack://siteoforigin:,,,/Assets/bong.ogg");
+        private readonly Uri _startSoundUri = new("pack://siteoforigin:,,,/Assets/start.ogg");
+        private readonly Uri _endSoundUri = new("pack://siteoforigin:,,,/Assets/end.mp3");
+
 
         public MainWindow()
         {
@@ -55,13 +43,26 @@ namespace Caro
             DataContext = this;
         }
 
-        private void CreateBoard(int size)
+        public ObservableCollection<Cell> BoardData { get; set; } = [];
+        public Player CurrentPlayer { get; set; }
+        public Player Winner { get; set; }
+        public bool GameOver => Winner != Player.None;
+
+        private void CreateBoard(int size, Player[]? data = null)
         {
             var itemsPresenter = Utils.GetVisualChild<ItemsPresenter>(Board)!;
             var grid = Utils.GetVisualChild<Grid>(itemsPresenter)!;
 
             _maxBoardSize = size * MaxCellSize;
             _minBoardSize = size * MinCellSize;
+            this.MinHeight = _minBoardSize + Other.ActualHeight + TitleBar.ActualHeight + _spacing * 4;
+            ResizeBoard();
+
+            BoardData.Clear();
+            grid.RowDefinitions.Clear();
+            grid.ColumnDefinitions.Clear();
+            CurrentPlayer = FirstPlayer;
+            Winner = Player.None;
 
             for (int i = 0; i < size; i++)
             {
@@ -82,60 +83,395 @@ namespace Caro
                         | (j == size - 1 ? Position.Right : Position.Other)
                         | (i == size - 1 ? Position.Bottom : Position.Other);
 
-                    BoardData.Add(new Cell(pos));
-                    Grid.SetColumn(grid.Children[i * size + j], j);
-                    Grid.SetRow(grid.Children[i * size + j], i);
+                    int idx = i * size + j;
+
+                    if (data is null)
+                    {
+                        BoardData.Add(new Cell(pos, i, j));
+                    }
+                    else
+                    {
+                        BoardData.Add(new Cell(pos, i, j) { PlayedBy = data[idx] });
+                    }
+
+                    Grid.SetColumn(grid.Children[idx], j);
+                    Grid.SetRow(grid.Children[idx], i);
                 }
             }
+
+            _soundPlayer.Open(_startSoundUri);
+            _soundPlayer.Play();
         }
 
-        #region Event Handlers
-        private void MainWindow_Loaded(object sender, System.Windows.RoutedEventArgs e)
+        private void SwitchPlayer()
         {
-            Board.ItemsSource = BoardData;
-            CreateBoard(_boardDimension);
-
-
-            this.MinHeight = _minBoardSize + Test.ActualHeight + TitleBar.ActualHeight + _spacing * 4;
+            CurrentPlayer = CurrentPlayer == Player.X ? Player.O : Player.X;
         }
 
-        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        private bool CheckGameOver(int row, int col)
         {
-            double length = Math.Min(Content.ActualHeight - Test.ActualHeight - 20, Content.ActualWidth);
+            if (CheckRow(row, col)
+                || CheckColumn(row, col)
+                || CheckLeftDiagonal(row, col)
+                || CheckRightDiagonal(row, col))
+            {
+                Winner = CurrentPlayer;
+                CurrentPlayer = Player.None;
+
+                _soundPlayer.Open(_endSoundUri);
+                _soundPlayer.Play();
+
+                System.Windows.MessageBox.Show($"{Winner} wins");
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool CheckGameOver()
+        {
+            for (int i = 0; i < _boardDimension; i++)
+            {
+                for (int j = 0; j < _boardDimension; j++)
+                {
+                    if (CheckGameOver(i, j)) return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool CheckRow(int row, int col)
+        {
+            Player player = BoardData[row * _boardDimension + col].PlayedBy;
+            if (player == Player.None) return false;
+
+            int count = 1;
+            for (int i = col + 1; i <= col + ConsecutiveCellsToWin - 1; i++)
+            {
+                if (i >= _boardDimension) break;
+                if (BoardData[row * _boardDimension + i].PlayedBy != player) break;
+
+                count++;
+            }
+            for (int i = col - 1; i >= col - ConsecutiveCellsToWin + 1; i--)
+            {
+                if (i < 0) break;
+                if (BoardData[row * _boardDimension + i].PlayedBy != player) break;
+
+                count++;
+            }
+            Debug.WriteLine($"Row {row} - {count}");
+
+            return count >= ConsecutiveCellsToWin;
+        }
+
+        private bool CheckColumn(int row, int col)
+        {
+            Player player = BoardData[row * _boardDimension + col].PlayedBy;
+            if (player == Player.None) return false;
+
+            int count = 1;
+            for (int i = row + 1; i <= row + ConsecutiveCellsToWin - 1; i++)
+            {
+                if (i >= _boardDimension) break;
+                if (BoardData[i * _boardDimension + col].PlayedBy != player) break;
+
+                count++;
+            }
+            for (int i = row - 1; i >= row - ConsecutiveCellsToWin + 1; i--)
+            {
+                if (i < 0) break;
+                if (BoardData[i * _boardDimension + col].PlayedBy != player) break;
+
+                count++;
+            }
+            Debug.WriteLine($"Col {col} - {count}");
+
+
+            return count >= ConsecutiveCellsToWin;
+        }
+
+        private bool CheckLeftDiagonal(int row, int col)
+        {
+            Player player = BoardData[row * _boardDimension + col].PlayedBy;
+            if (player == Player.None) return false;
+
+            int count = 1;
+            for (int i = 1; i < ConsecutiveCellsToWin; i++)
+            {
+                int curRow = row + i, curCol = col + i;
+
+                if (curRow >= _boardDimension || curCol >= _boardDimension) break;
+                if (BoardData[curRow * _boardDimension + curCol].PlayedBy != player) break;
+
+                count++;
+
+            }
+
+            for (int i = 1; i < ConsecutiveCellsToWin; i++)
+            {
+                int curRow = row - i, curCol = col - i;
+
+                if (curRow < 0 || curCol < 0) break;
+                if (BoardData[curRow * _boardDimension + curCol].PlayedBy != player) break;
+
+                count++;
+            }
+
+
+            return count >= ConsecutiveCellsToWin;
+        }
+
+        private bool CheckRightDiagonal(int row, int col)
+        {
+            Player player = BoardData[row * _boardDimension + col].PlayedBy;
+            if (player == Player.None) return false;
+
+            int count = 1;
+            for (int i = 1; i < ConsecutiveCellsToWin; i++)
+            {
+                int curRow = row - i, curCol = col + i;
+
+                if (curRow < 0 || curCol >= _boardDimension) break;
+                if (BoardData[curRow * _boardDimension + curCol].PlayedBy != player) break;
+
+                count++;
+
+            }
+
+            for (int i = 1; i < ConsecutiveCellsToWin; i++)
+            {
+                int curRow = row + i, curCol = col - i;
+
+                if (curRow >= _boardDimension || curCol < 0) break;
+                if (BoardData[curRow * _boardDimension + curCol].PlayedBy != player) break;
+
+                count++;
+            }
+
+
+            return count >= ConsecutiveCellsToWin;
+        }
+
+        private void ResizeBoard()
+        {
+            double length = Math.Min(MainContent.ActualHeight - Other.ActualHeight - 20, MainContent.ActualWidth);
             if (length < _minBoardSize) length = _minBoardSize;
             else if (length > _maxBoardSize) length = _maxBoardSize;
 
             Board.Width = Board.Height = (int)(length / _boardDimension) * _boardDimension;
         }
 
-        private void Board_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void SelectCell(int row, int col)
         {
-            // ignore the trigger by the the our reset;
-            if (Board.SelectedIndex == -1) return;
-            Debug.WriteLine(Board.SelectedIndex);
+            if (CurrentPlayer == Player.None) return; // Game ended
 
-            var cell = BoardData[Board.SelectedIndex];
+            var cell = BoardData[row * _boardDimension + col];
+
+            // Select cell
             if (cell.PlayedBy != Player.None) return;
-            //BoardData[Board.SelectedIndex] = new Cell(cell.Pos) { PlayedBy = _currentPlayer };
-            ((Cell)Board.SelectedItem).PlayedBy = _currentPlayer;
+            cell.PlayedBy = CurrentPlayer;
 
-            //((ViewModel)DataContext).List[0].PlayedBy = _currentPlayer;
+            _soundPlayer.Open(_selectSoundUri);
+            _soundPlayer.Play();
 
-            // reset the selection
-            //Board.SelectedIndex = -1;
+            // Switch highlighted cell
+            SwitchHighlightedCell(row, col);
+
+            // Check for game over
+            if (CheckGameOver(cell.Row, cell.Col)) return;
+
+            // Switch turn
+            SwitchPlayer();
         }
+
+        private void SwitchHighlightedCell(int row, int col)
+        {
+            if (_highlightedCell is not null)
+            {
+                _highlightedCell.IsHighlighted = false;
+            }
+
+            _highlightedCell = BoardData[row * _boardDimension + col];
+            _highlightedCell.IsHighlighted = true;
+        }
+
+        private void SaveGame(string filePath)
+        {
+            var save = new GameSave()
+            {
+                CurrentPlayer = CurrentPlayer,
+                BoardSize = _boardDimension,
+                Board = BoardData.Select(cell => cell.PlayedBy).ToArray()
+            };
+
+            XmlSerializer serializer = new(typeof(GameSave));
+
+            using var streamWriter = new StreamWriter(filePath);
+            serializer.Serialize(streamWriter, save);
+        }
+
+        private GameSave SaveGame()
+        {
+            return new GameSave()
+            {
+                CurrentPlayer = CurrentPlayer,
+                BoardSize = _boardDimension,
+                Board = BoardData.Select(cell => cell.PlayedBy).ToArray()
+            };
+        }
+
+        private void LoadGame(string filePath)
+        {
+
+            GameSave? save;
+            try
+            {
+                var serializer = new XmlSerializer(typeof(GameSave));
+                using var fileStream = new FileStream(filePath, FileMode.Open);
+                save = (GameSave)serializer.Deserialize(fileStream)!;
+
+                // validate
+                if (save.BoardSize * save.BoardSize != save.Board.Length)
+                    throw new Exception();
+
+                var xCount = save.Board.Count(player => player == Player.X);
+                var oCount = save.Board.Count(player => player == Player.O);
+                if (Math.Abs(xCount - oCount) > 1)
+                    throw new Exception();
+            }
+            catch (Exception)
+            {
+                System.Windows.MessageBox.Show("Invalid save file");
+                return;
+            }
+
+            var currentGame = SaveGame();
+
+            Board.Visibility = Visibility.Hidden;
+
+            _boardDimension = save.BoardSize;
+            CurrentPlayer = save.CurrentPlayer;
+            CreateBoard(_boardDimension, save.Board);
+
+            if (CheckGameOver())
+            {
+                _boardDimension = currentGame.BoardSize;
+                CurrentPlayer = currentGame.CurrentPlayer;
+                CreateBoard(_boardDimension, save.Board);
+            }
+
+            Board.Visibility = Visibility.Visible;
+        }
+
+        #region Event Handlers
+        private void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
+        {
+            Board.ItemsSource = BoardData;
+            CreateBoard(_boardDimension);
+        }
+
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ResizeBoard();
 
         private void BoardTemplate_Loaded(object sender, RoutedEventArgs e)
         {
             _boardTemplate = sender as Grid;
         }
 
-        private void Test_Click(object sender, RoutedEventArgs e)
+        private void Restart_Click(object sender, RoutedEventArgs e)
         {
-            BoardData[0].PlayedBy = _currentPlayer;
+            var inputDialog = new BoardSizeInputWindow();
+            if (inputDialog.ShowDialog() == true)
+            {
+                _boardDimension = inputDialog.BoardSize;
+                CreateBoard(_boardDimension);
+            }
+        }
 
+        private void ListViewItem_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var cell = ((ListViewItem)sender).Content as Cell;
+            if (cell is null) return;
+
+            SelectCell(cell.Row, cell.Col);
+        }
+
+        private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Left:
+                    if (_highlightedCell is null) break;
+                    SwitchHighlightedCell(_highlightedCell.Row, Math.Max(0, _highlightedCell.Col - 1));
+
+                    return;
+                case Key.Right:
+                    if (_highlightedCell is null) break;
+                    else
+                        SwitchHighlightedCell(_highlightedCell.Row, Math.Min(_boardDimension - 1, _highlightedCell.Col + 1));
+
+                    return;
+                case Key.Up:
+                    if (_highlightedCell is null) break;
+                    SwitchHighlightedCell(Math.Max(0, _highlightedCell.Row - 1), _highlightedCell.Col);
+
+                    return;
+                case Key.Down:
+                    if (_highlightedCell is null) break;
+                    SwitchHighlightedCell(Math.Min(_boardDimension - 1, _highlightedCell.Row + 1), _highlightedCell.Col);
+
+                    return;
+                case Key.Enter:
+                    if (_highlightedCell is null) break;
+                    SelectCell(_highlightedCell.Row, _highlightedCell.Col);
+
+                    return;
+                default:
+                    return;
+            }
+
+            var selectedItem = Board.SelectedItem as Cell;
+            if (selectedItem is not null)
+            {
+                SwitchHighlightedCell(selectedItem.Row, selectedItem.Col);
+                return;
+            }
+
+            SwitchHighlightedCell(0, 0);
         }
 
         #endregion Event Handlers
+
+        private void Save_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog saveDialog = new()
+            {
+                Filter = "Game data (*.data)|*.data",
+                DefaultExt = "data",
+                AddExtension = true
+            };
+
+            if (saveDialog.ShowDialog() == true)
+            {
+                SaveGame(saveDialog.FileName);
+            }
+        }
+
+        private void Open_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog openDialog = new()
+            {
+                Filter = "Game data (*.data)|*.data",
+                DefaultExt = "data",
+                AddExtension = true
+            };
+
+            if (openDialog.ShowDialog() == true)
+            {
+                LoadGame(openDialog.FileName);
+            }
+        }
     }
 }

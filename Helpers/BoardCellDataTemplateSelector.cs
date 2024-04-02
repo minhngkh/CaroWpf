@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using Caro.CaroGame;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace Caro.Helpers

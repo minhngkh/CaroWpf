@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Caro.CaroGame;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
