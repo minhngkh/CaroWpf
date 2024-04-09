@@ -91,121 +91,150 @@
                 <ui:ImageIcon Source="pack://application:,,,/icon.ico" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
-        <Grid x:Name="MainContent" Margin="20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <Grid>
+            <Grid
+                x:Name="MainContent"
+                Margin="20"
+                Visibility="{Binding GameStarted, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Normal}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <Border
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                BorderBrush="Gray"
-                BorderThickness="1">
-                <ListView x:Name="Board" SelectionMode="Single">
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <Grid x:Name="BoardTemplate" Loaded="BoardTemplate_Loaded" />
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
-                    <ListView.ItemContainerStyle>
-                        <Style BasedOn="{StaticResource {x:Type ListViewItem}}" TargetType="{x:Type ListViewItem}">
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0" />
-                            <Setter Property="BorderBrush" Value="Gray" />
-                            <Setter Property="BorderThickness" Value="1" />
-                            <Setter Property="Template" Value="{StaticResource CellContainer}" />
+                <Border
+                    Grid.Row="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    BorderBrush="Gray"
+                    BorderThickness="1"
+                    Visibility="{Binding GameStarted, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Normal}">
+                    <ListView x:Name="Board" SelectionMode="Single">
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Grid x:Name="BoardTemplate" Loaded="BoardTemplate_Loaded" />
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
+                        <ListView.ItemContainerStyle>
+                            <Style BasedOn="{StaticResource {x:Type ListViewItem}}" TargetType="{x:Type ListViewItem}">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="BorderBrush" Value="Gray" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Template" Value="{StaticResource CellContainer}" />
 
-                            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ListViewItem_PreviewMouseLeftButtonDown" />
+                                <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ListViewItem_PreviewMouseLeftButtonDown" />
 
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-                                    <Setter Property="Background" Value="{Binding CurrentPlayer, ElementName=Root, Converter={StaticResource PlayerToColorConverter}}" />
-                                    <Setter Property="BorderBrush" Value="Black" />
-                                    <Setter Property="Opacity" Value="0.7" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate DataType="local:Cell">
-                            <ContentControl
-                                x:Name="content"
-                                Content="{Binding}"
-                                ContentTemplate="{StaticResource EmptyCellTemplate}" />
-                            <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static game:Player.X}">
-                                    <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource XCellTemplate}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static game:Player.O}">
-                                    <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource OCellTemplate}" />
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Border>
-
-            <StackPanel
-                x:Name="Other"
-                Grid.Row="1"
-                Margin="0,20,0,0">
-                <ui:TextBlock HorizontalAlignment="Center" Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Inverted}">
-                    <Run>
-                        <Run.Style>
-                            <Style TargetType="Run">
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentPlayer}" Value="{x:Static game:Player.X}">
-                                        <Setter Property="Text" Value="Player X" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding CurrentPlayer}" Value="{x:Static game:Player.O}">
-                                        <Setter Property="Text" Value="Player O" />
+                                    <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                        <Setter Property="Background" Value="{Binding CurrentPlayer, ElementName=Root, Converter={StaticResource PlayerToColorConverter}}" />
+                                        <Setter Property="BorderBrush" Value="Black" />
+                                        <Setter Property="Opacity" Value="0.7" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Run.Style>
-                    </Run>
-                    <Run Text="turn" />
-                </ui:TextBlock>
-                <ui:TextBlock HorizontalAlignment="Center" Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Normal}">
-                    <Run Text="Game over," />
-                    <Run>
-                        <Run.Style>
-                            <Style TargetType="Run">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Winner}" Value="{x:Static game:Player.X}">
-                                        <Setter Property="Text" Value="Player X wins" />
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate DataType="local:Cell">
+                                <ContentControl
+                                    x:Name="content"
+                                    Content="{Binding}"
+                                    ContentTemplate="{StaticResource EmptyCellTemplate}" />
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static game:Player.X}">
+                                        <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource XCellTemplate}" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding Winner}" Value="{x:Static game:Player.O}">
-                                        <Setter Property="Text" Value="Player O wins" />
+                                    <DataTrigger Binding="{Binding PlayedBy}" Value="{x:Static game:Player.O}">
+                                        <Setter TargetName="content" Property="ContentTemplate" Value="{StaticResource OCellTemplate}" />
                                     </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Run.Style>
-                    </Run>
-                </ui:TextBlock>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
 
                 <StackPanel
+                    x:Name="Other"
+                    Grid.Row="1"
+                    Margin="0,20,0,0">
+                    <ui:TextBlock HorizontalAlignment="Center" Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Inverted}">
+                        <Run>
+                            <Run.Style>
+                                <Style TargetType="Run">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentPlayer}" Value="{x:Static game:Player.X}">
+                                            <Setter Property="Text" Value="Player X" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding CurrentPlayer}" Value="{x:Static game:Player.O}">
+                                            <Setter Property="Text" Value="Player O" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Run.Style>
+                        </Run>
+                        <Run Text="turn" />
+                    </ui:TextBlock>
+                    <ui:TextBlock HorizontalAlignment="Center" Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Normal}">
+                        <Run Text="Game over," />
+                        <Run>
+                            <Run.Style>
+                                <Style TargetType="Run">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Winner}" Value="{x:Static game:Player.X}">
+                                            <Setter Property="Text" Value="Player X wins" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Winner}" Value="{x:Static game:Player.O}">
+                                            <Setter Property="Text" Value="Player O wins" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Winner}" Value="{x:Static game:Player.None}">
+                                            <Setter Property="Text" Value="Draw" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Run.Style>
+                        </Run>
+                    </ui:TextBlock>
+
+                    <StackPanel
+                        Margin="0,12,0,0"
+                        HorizontalAlignment="Center"
+                        Orientation="Horizontal">
+                        <ui:Button
+                            HorizontalAlignment="Center"
+                            Click="Restart_Click"
+                            Content="New game" />
+                        <ui:Button
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Center"
+                            Click="Open_Click"
+                            Content="Open" />
+                        <ui:Button
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Center"
+                            Click="Save_Click"
+                            Content="Save"
+                            Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Inverted}" />
+                    </StackPanel>
+
+                </StackPanel>
+            </Grid>
+
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                d:Visibility="Collapsed"
+                Orientation="Vertical"
+                Visibility="{Binding GameStarted, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Inverted}">
+                <ui:Button
+                    Width="100"
+                    HorizontalAlignment="Center"
+                    Click="Restart_Click"
+                    Content="New game" />
+                <ui:Button
+                    Width="100"
                     Margin="0,12,0,0"
                     HorizontalAlignment="Center"
-                    Orientation="Horizontal">
-                    <ui:Button
-                        HorizontalAlignment="Center"
-                        Click="Restart_Click"
-                        Content="New game" />
-                    <ui:Button
-                        Margin="12,0,0,0"
-                        HorizontalAlignment="Center"
-                        Click="Open_Click"
-                        Content="Open" />
-                    <ui:Button
-                        Margin="12,0,0,0"
-                        HorizontalAlignment="Center"
-                        Click="Save_Click"
-                        Content="Save"
-                        Visibility="{Binding GameOver, Converter={StaticResource InversibleBooleanToVisibilityConverter}, ConverterParameter=Inverted}" />
-                </StackPanel>
-
+                    Click="Open_Click"
+                    Content="Open" />
             </StackPanel>
         </Grid>
     </DockPanel>

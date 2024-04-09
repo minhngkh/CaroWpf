@@ -46,23 +46,36 @@ namespace Caro
         public ObservableCollection<Cell> BoardData { get; set; } = [];
         public Player CurrentPlayer { get; set; }
         public Player Winner { get; set; }
-        public bool GameOver => Winner != Player.None;
+        public bool GameOver { get; set; } = false;
+        public bool GameStarted { get; set; } = false;
+        public bool GameSavable => GameStarted && !GameOver;
 
-        private void CreateBoard(int size, Player[]? data = null)
+        private void CreateGame(int size, GameSave? save = null)
         {
             var itemsPresenter = Utils.GetVisualChild<ItemsPresenter>(Board)!;
             var grid = Utils.GetVisualChild<Grid>(itemsPresenter)!;
 
+            _boardDimension = size;
             _maxBoardSize = size * MaxCellSize;
             _minBoardSize = size * MinCellSize;
             this.MinHeight = _minBoardSize + Other.ActualHeight + TitleBar.ActualHeight + _spacing * 4;
-            ResizeBoard();
+            this.MinWidth = _minBoardSize + _spacing * 4;
+            //ResizeBoard();
 
             BoardData.Clear();
             grid.RowDefinitions.Clear();
             grid.ColumnDefinitions.Clear();
-            CurrentPlayer = FirstPlayer;
             Winner = Player.None;
+
+            if (save is null)
+            {
+                CurrentPlayer = FirstPlayer;
+            }
+            else
+            {
+                CurrentPlayer = save.CurrentPlayer;
+            }
+
 
             for (int i = 0; i < size; i++)
             {
@@ -85,22 +98,19 @@ namespace Caro
 
                     int idx = i * size + j;
 
-                    if (data is null)
+                    if (save is null)
                     {
                         BoardData.Add(new Cell(pos, i, j));
                     }
                     else
                     {
-                        BoardData.Add(new Cell(pos, i, j) { PlayedBy = data[idx] });
+                        BoardData.Add(new Cell(pos, i, j) { PlayedBy = save.Board[idx] });
                     }
 
                     Grid.SetColumn(grid.Children[idx], j);
                     Grid.SetRow(grid.Children[idx], i);
                 }
             }
-
-            _soundPlayer.Open(_startSoundUri);
-            _soundPlayer.Play();
         }
 
         private void SwitchPlayer()
@@ -110,6 +120,8 @@ namespace Caro
 
         private bool CheckGameOver(int row, int col)
         {
+
+
             if (CheckRow(row, col)
                 || CheckColumn(row, col)
                 || CheckLeftDiagonal(row, col)
@@ -117,6 +129,7 @@ namespace Caro
             {
                 Winner = CurrentPlayer;
                 CurrentPlayer = Player.None;
+                GameOver = true;
 
                 _soundPlayer.Open(_endSoundUri);
                 _soundPlayer.Play();
@@ -126,11 +139,30 @@ namespace Caro
                 return true;
             }
 
+            if (BoardData.All(cell => cell.PlayedBy != Player.None))
+            {
+                Winner = Player.None;
+                CurrentPlayer = Player.None;
+                GameOver = true;
+
+                _soundPlayer.Open(_endSoundUri);
+                _soundPlayer.Play();
+
+                System.Windows.MessageBox.Show("Draw");
+
+                return true;
+            }
+
             return false;
         }
 
         private bool CheckGameOver()
         {
+            if (BoardData.All(cell => cell.PlayedBy != Player.None))
+            {
+                return true;
+            }
+
             for (int i = 0; i < _boardDimension; i++)
             {
                 for (int j = 0; j < _boardDimension; j++)
@@ -348,29 +380,42 @@ namespace Caro
                 return;
             }
 
-            var currentGame = SaveGame();
+
+            var currentGame = GameStarted ? SaveGame() : null;
 
             Board.Visibility = Visibility.Hidden;
-
-            _boardDimension = save.BoardSize;
-            CurrentPlayer = save.CurrentPlayer;
-            CreateBoard(_boardDimension, save.Board);
+            CreateGame(save.BoardSize, save);
 
             if (CheckGameOver())
             {
-                _boardDimension = currentGame.BoardSize;
-                CurrentPlayer = currentGame.CurrentPlayer;
-                CreateBoard(_boardDimension, save.Board);
+                System.Windows.MessageBox.Show("Invalid save file");
+                if (currentGame is not null)
+                {
+                    CreateGame(currentGame.BoardSize, currentGame);
+                    Board.Visibility = Visibility.Visible;
+                }
             }
+            else
+            {
+                Board.Visibility = Visibility.Visible;
+                StartGame();
+            }
+        }
 
-            Board.Visibility = Visibility.Visible;
+        public void StartGame()
+        {
+            GameOver = false;
+            GameStarted = true;
+            ResizeBoard();
+            _soundPlayer.Open(_startSoundUri);
+            _soundPlayer.Play();
         }
 
         #region Event Handlers
         private void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
         {
             Board.ItemsSource = BoardData;
-            CreateBoard(_boardDimension);
+            //CreateBoard(_boardDimension);
         }
 
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ResizeBoard();
@@ -385,8 +430,8 @@ namespace Caro
             var inputDialog = new BoardSizeInputWindow();
             if (inputDialog.ShowDialog() == true)
             {
-                _boardDimension = inputDialog.BoardSize;
-                CreateBoard(_boardDimension);
+                CreateGame(inputDialog.BoardSize);
+                StartGame();
             }
         }
 
@@ -442,8 +487,6 @@ namespace Caro
             SwitchHighlightedCell(0, 0);
         }
 
-        #endregion Event Handlers
-
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             SaveFileDialog saveDialog = new()
@@ -473,5 +516,7 @@ namespace Caro
                 LoadGame(openDialog.FileName);
             }
         }
+
+        #endregion Event Handlers
     }
 }
